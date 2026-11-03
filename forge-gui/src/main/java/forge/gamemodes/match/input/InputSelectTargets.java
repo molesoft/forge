@@ -49,6 +49,31 @@ public final class InputSelectTargets extends InputSyncronizedBase {
     public boolean hasCancelled() { return bCancel; }
     public boolean hasPressedOk() { return bOk; }
 
+    /**
+     * Players a click would currently act on: already-chosen targets (a click removes them) and
+     * legal new ones. For GUIs that list choices up front rather than reacting to clicks.
+     */
+    public List<Player> getSelectablePlayers() {
+        final List<Player> result = new ArrayList<>();
+        for (final Player player : sa.getHostCard().getGame().getPlayers()) {
+            if (targets.contains(player)) {
+                result.add(player);
+                continue;
+            }
+            if (player.hasLost() || mustTargetFiltered || !sa.canTarget(player)) {
+                continue;
+            }
+            if (sa.isSpell() && sa.getHostCard().isAura() && !player.canBeAttached(sa.getHostCard(), sa)) {
+                continue;
+            }
+            if (filter != null && !filter.test(player)) {
+                continue;
+            }
+            result.add(player);
+        }
+        return result;
+    }
+
     public InputSelectTargets(final PlayerControllerHuman controller, final List<Card> choices, final SpellAbility sa, final boolean mandatory, Integer numTargets, Collection<Integer> divisionValues, Predicate<GameObject> filter, boolean mustTargetFiltered) {
         super(controller);
         this.choices = choices;
