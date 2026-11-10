@@ -50,6 +50,16 @@ public abstract class InputPayMana extends InputSyncronizedBase {
 
     private boolean locked = false;
 
+    /** The ability being paid for, for GUIs that word the prompt themselves. */
+    public SpellAbility getSaPaidFor() {
+        return saPaidFor;
+    }
+
+    /** What is left to pay, or null before a payment has a cost. */
+    public ManaCostBeingPaid getManaCostBeingPaid() {
+        return manaCost;
+    }
+
     protected InputPayMana(final PlayerControllerHuman controller, final SpellAbility saPaidFor0, final Player player0, final boolean effect) {
         super(controller);
         player = player0;

@@ -44,6 +44,16 @@ public final class InputSelectTargets extends InputSyncronizedBase {
     public boolean hasCancelled() { return bCancel; }
     public boolean hasPressedOk() { return bOk; }
 
+    /** The ability whose targets are being chosen, for GUIs that word the prompt themselves. */
+    public SpellAbility getAbility() {
+        return sa;
+    }
+
+    /** The target restrictions being satisfied: their prompt text and limits. */
+    public TargetRestrictions getTargetRestrictions() {
+        return tgt;
+    }
+
     /**
      * Players a click would currently act on: already-chosen targets (a click removes them) and
      * legal new ones. For GUIs that list choices up front rather than reacting to clicks.
