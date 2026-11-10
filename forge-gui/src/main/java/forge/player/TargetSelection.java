@@ -23,7 +23,6 @@ import forge.game.card.Card;
 import forge.game.card.CardCollection;
 import forge.game.card.CardUtil;
 import forge.game.card.CardView;
-import forge.game.player.PlayerCollection;
 import forge.game.spellability.SpellAbility;
 import forge.game.spellability.SpellAbilityStackInstance;
 import forge.game.spellability.StackItemView;
@@ -107,12 +106,7 @@ public class TargetSelection {
         }
 
         List<GameEntity> candidates = tgt.getAllCandidates(this.ability);
-        boolean hasEnoughCandidates = candidates.size() >= minTargets;
-        if (tgt.isDifferentControllers() || tgt.isForEachPlayer()) {
-            PlayerCollection controllers = new PlayerCollection();
-            IterableUtil.filter(candidates, Card.class).forEach(c -> controllers.add(c.getController()));
-            hasEnoughCandidates &= controllers.size() >= minTargets;
-        }
+        boolean hasEnoughCandidates = tgt.hasEnoughCandidates(this.ability, minTargets);
         mandatory &= hasEnoughCandidates;
 
         if (!hasEnoughCandidates && !hasEnoughTargets) {

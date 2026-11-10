@@ -30,7 +30,9 @@ import forge.game.GameEntity;
 import forge.game.ability.AbilityUtils;
 import forge.game.card.Card;
 import forge.game.player.Player;
+import forge.game.player.PlayerCollection;
 import forge.game.zone.ZoneType;
+import forge.util.IterableUtil;
 import forge.util.Lang;
 import forge.util.TextUtil;
 
@@ -590,6 +592,22 @@ public class TargetRestrictions {
         }
 
         return candidates;
+    }
+
+    /**
+     * Whether there are enough legal candidates for [minTargets] targets, counting the rule that targets
+     * must have different controllers (or one per player). The check a human cast makes before choosing
+     * targets; a client can ask it beforehand, so a spell with no legal targets isn't offered.
+     */
+    public final boolean hasEnoughCandidates(final SpellAbility sa, final int minTargets) {
+        final List<GameEntity> candidates = getAllCandidates(sa);
+        boolean enough = candidates.size() >= minTargets;
+        if (isDifferentControllers() || isForEachPlayer()) {
+            final PlayerCollection controllers = new PlayerCollection();
+            IterableUtil.filter(candidates, Card.class).forEach(c -> controllers.add(c.getController()));
+            enough &= controllers.size() >= minTargets;
+        }
+        return enough;
     }
 
     public final boolean isUniqueTargets() {
