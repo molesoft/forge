@@ -163,6 +163,61 @@ public class SealedCardPoolGenerator {
      * @param poolType
      *            a {@link java.lang.String} object.
      */
+    /**
+     * The products of an edition's prerelease kit, from its {@code Prerelease} line: usually its boosters plus a
+     * promo of a rarity ("6 Boosters, 1 RareMythic+"). Each product is opened with {@code get()}.
+     */
+    public static List<IUnOpenedProduct> prereleaseProducts(final CardEdition edition) {
+        final List<IUnOpenedProduct> products = new ArrayList<>();
+        String bundle = edition.getPrerelease();
+
+        // Parse prerelease bundle.
+        // More recent sets are like 6 boosters of this edition + 1 Promo RareMythic from this edition
+
+        // Expecting to see things like
+        // # <Edition> Boosters, # Rarity+
+
+        String[] parts = bundle.split(", ");
+        for(String part : parts) {
+            boolean promo = part.endsWith("+");
+            if (promo) {
+                part = part.substring(0, part.length() - 1);
+            }
+
+            String[] pieces = part.split(" ");
+            int num = Integer.parseInt(pieces[0]);
+            String thing = pieces[pieces.length - 1];
+
+            // Booster, Rarity, Named, SpecialBooster?
+
+            if (thing.equalsIgnoreCase("Booster") || thing.equalsIgnoreCase("Boosters")) {
+                // Normal Boosters of this or block editions
+                String code = edition.getCode();
+                if (pieces.length > 2) {
+                    // 2 USG Boosters
+                    code = pieces[1];
+                }
+
+                // Generate draft boosters
+                for(int i = 0; i < num; i++) {
+                    products.add(new UnOpenedProduct(FModel.getMagicDb().getBoosters().get(code)));
+                }
+            } else {
+                // Rarity
+                List<Pair<String, Integer>> promoSlot = new ArrayList<>();
+                promoSlot.add(Pair.of(pieces[1], num));
+
+                SealedTemplate promoProduct = new SealedTemplate("Prerelease Promo", promoSlot);
+
+                // Create a "booster" with just the promo card. Rarity + Edition into a Template
+                products.add(new UnOpenedProduct(promoProduct, FModel.getMagicDb().getCommonCards().getAllCards(edition)));
+                // TODO This product should be Foiled only. How do I do that?
+            }
+            // TODO Add support for special boosters like GuildPacks
+        }
+        return products;
+    }
+
     public SealedCardPoolGenerator(final LimitedPoolType poolType) {
         switch(poolType) {
             case Full:
@@ -183,52 +238,7 @@ public class SealedCardPoolGenerator {
                     return;
                 }
 
-                String bundle = chosenEdition.getPrerelease();
-
-                // Parse prerelease bundle.
-                // More recent sets are like 6 boosters of this edition + 1 Promo RareMythic from this edition
-
-                // Expecting to see things like
-                // # <Edition> Boosters, # Rarity+
-
-                String[] parts = bundle.split(", ");
-                for(String part : parts) {
-                    boolean promo = part.endsWith("+");
-                    if (promo) {
-                        part = part.substring(0, part.length() - 1);
-                    }
-
-                    String[] pieces = part.split(" ");
-                    int num = Integer.parseInt(pieces[0]);
-                    String thing = pieces[pieces.length - 1];
-
-                    // Booster, Rarity, Named, SpecialBooster?
-
-                    if (thing.equalsIgnoreCase("Booster") || thing.equalsIgnoreCase("Boosters")) {
-                        // Normal Boosters of this or block editions
-                        String code = chosenEdition.getCode();
-                        if (pieces.length > 2) {
-                            // 2 USG Boosters
-                            code = pieces[1];
-                        }
-
-                        // Generate draft boosters
-                        for(int i = 0; i < num; i++) {
-                            this.product.add(new UnOpenedProduct(FModel.getMagicDb().getBoosters().get(code)));
-                        }
-                    } else {
-                        // Rarity
-                        List<Pair<String, Integer>> promoSlot = new ArrayList<>();
-                        promoSlot.add(Pair.of(pieces[1], num));
-
-                        SealedTemplate promoProduct = new SealedTemplate("Prerelease Promo", promoSlot);
-
-                        // Create a "booster" with just the promo card. Rarity + Edition into a Template
-                        this.product.add(new UnOpenedProduct(promoProduct, FModel.getMagicDb().getCommonCards().getAllCards(chosenEdition)));
-                        // TODO This product should be Foiled only. How do I do that?
-                    }
-                    // TODO Add support for special boosters like GuildPacks
-                }
+                this.product.addAll(prereleaseProducts(chosenEdition));
 
                 //chosenEdition but really it should be defined by something in the edition file?
                 landSetCode = chosenEdition.getCode();
