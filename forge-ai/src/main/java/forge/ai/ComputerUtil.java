@@ -110,11 +110,14 @@ public class ComputerUtil {
 
         if (sa.getApi() == ApiType.Charm && !CharmEffect.makeChoices(sa)) {
             // 603.3c If no mode is chosen, the ability is removed from the stack.
+            if (sa.isSpell() && hz != null && !hz.is(ZoneType.Stack)) putBack(game, sa.getHostCard(), hz);
             return false;
         }
         if (chooseTargets != null) {
             chooseTargets.accept(sa);
             if (!sa.isTargetNumberValid()) {
+                // Not cast after all: the card goes back rather than staying in the stack zone.
+                if (sa.isSpell() && hz != null && !hz.is(ZoneType.Stack)) putBack(game, sa.getHostCard(), hz);
                 return false;
             }
         }
@@ -126,6 +129,14 @@ public class ComputerUtil {
         final CostPayment pay = new CostPayment(cost, sa);
         if (pay.payComputerCosts(new AiCostDecision(ai, sa, false))) {
             game.getStack().addAndUnfreeze(sa);
+            // MagicStack.add refuses a spell without legal targets and returns quietly, which left the card in
+            // the stack zone for the rest of the game, drawn there and out of play. Put it back where it was cast from.
+            if (sa.isSpell() && hz != null && !hz.is(ZoneType.Stack) && sa.getHostCard().isInZone(ZoneType.Stack)
+                    && game.getStack().getSpellMatchingHost(sa.getHostCard()) == null) {
+                System.out.println("[" + sa.getActivatingPlayer() + "] " + sa.getHostCard() + " wasn't added to the stack; back to " + hz.getZoneType());
+                putBack(game, sa.getHostCard(), hz);
+                return false;
+            }
             if (sa.getSplicedCards() != null && !sa.getSplicedCards().isEmpty()) {
                 game.getAction().reveal(sa.getSplicedCards(), ai, true, "Computer reveals spliced cards from ");
             }
@@ -134,13 +145,23 @@ public class ComputerUtil {
         // FIXME: Should not arrive here, though the card seems to be stuck on stack zone and invalidated and nowhere to be found, try to put back to original zone and maybe try to cast again if possible at later time?
         System.out.println("[" + sa.getActivatingPlayer() + "] AI failed to play " + sa.getHostCard() + " [" + sa.getHostCard().getZone() + "]");
         sa.setSkip(true);
-        if (host != null && hz != null && hz.is(ZoneType.Stack)) {
-            Card c = game.getAction().moveTo(hz.getZoneType(), host, null, null);
-            for (SpellAbility csa : c.getSpellAbilities()) {
-                csa.setSkip(true);
-            }
+        // The card was moved to the stack zone above: back to the zone it came from (this checked
+        // hz.is(Stack), which only a spell cast from the stack zone matches, so the card stayed lost).
+        if (sa.isSpell() && hz != null && !hz.is(ZoneType.Stack)) {
+            putBack(game, sa.getHostCard(), hz);
         }
         return false;
+    }
+
+    /** A spell the AI moved to the stack zone but didn't cast goes back to its zone, skipped for now so it isn't retried at once. */
+    private static void putBack(final Game game, final Card card, final Zone from) {
+        if (!card.isInZone(ZoneType.Stack)) {
+            return;
+        }
+        Card back = game.getAction().moveTo(from.getZoneType(), card, null, null);
+        for (SpellAbility csa : back.getSpellAbilities()) {
+            csa.setSkip(true);
+        }
     }
 
     private static boolean hasDiscardHandCost(final Cost cost) {
