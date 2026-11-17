@@ -55,6 +55,11 @@ public class TriggerHandler {
         game = gameState;
     }
 
+    /** The delayed triggers waiting now, read-only: what a card in exile waits for (rebound, a return at end of turn). */
+    public final List<Trigger> getDelayedTriggers() {
+        return Collections.unmodifiableList(delayedTriggers);
+    }
+
     public final void registerDelayedTrigger(final Trigger trig) {
         delayedTriggers.add(trig);
     }
