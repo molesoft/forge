@@ -108,22 +108,58 @@ public class ReadDraftRankings {
      * @return ranking
      */
     public Double getRanking(String cardName, String edition) {
-        Double rank = null;
-
-        if (draftRankings.containsKey(edition)) {
-            // This should be updated
-            String safeName = StringUtils.stripAccents(cardName);
-
-            // handle split cards
-            safeName = safeName.replace(" // ", " ");
-
-            // If a card has no ranking, don't try to look it up --BBU
-            if (draftRankings.get(edition).get(safeName) == null) {
-                // System.out.println("WARNING! " + safeName + " NOT found in " + edition);
-                return null;
-            }
-            rank = (double) draftRankings.get(edition).get(safeName) / (double) setSizes.get(edition);
+        if (draftRankings == null) {
+            return null;
         }
-        return rank;
+        // handle split cards
+        final String safeName = StringUtils.stripAccents(cardName).replace(" // ", " ");
+        final Double own = rankingIn(edition, safeName);
+        if (own != null) {
+            return own;
+        }
+        // A printing from a set without rankings (a reprint, a special frame, an old set) is ranked as the card is
+        // in the most recent set that ranks it, so bots value a card the same whichever printing it is.
+        return latestRankings().get(safeName);
+    }
+
+    private Double rankingIn(String edition, String safeName) {
+        final Map<String, Integer> set = draftRankings.get(edition);
+        if (set == null) {
+            return null;
+        }
+        final Integer rank = set.get(safeName);
+        // If a card has no ranking, don't try to look it up --BBU
+        return rank == null ? null : (double) rank / (double) setSizes.get(edition);
+    }
+
+    private Map<String, Double> latestRankings;
+
+    /** Each card's relative ranking in the most recent set that ranks it, by the set's release date. */
+    private synchronized Map<String, Double> latestRankings() {
+        if (latestRankings != null) {
+            return latestRankings;
+        }
+        final Map<String, Double> latest = new HashMap<>();
+        final List<String> editions = new java.util.ArrayList<>(draftRankings.keySet());
+        editions.sort(java.util.Comparator.comparing(ReadDraftRankings::releaseDate));
+        for (final String edition : editions) {
+            for (final String name : draftRankings.get(edition).keySet()) {
+                latest.put(name, rankingIn(edition, name));
+            }
+        }
+        latestRankings = latest;
+        return latest;
+    }
+
+    private static java.util.Date releaseDate(String code) {
+        try {
+            final forge.card.CardEdition edition = forge.StaticData.instance().getEditions().get(code);
+            if (edition != null && edition.getDate() != null) {
+                return edition.getDate();
+            }
+        } catch (RuntimeException ignored) {
+            // No card data loaded: order doesn't matter then.
+        }
+        return new java.util.Date(0);
     }
 }
