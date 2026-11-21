@@ -79,9 +79,14 @@ public class MakeCardEffect extends SpellAbilityEffect {
             } else if (sa.hasParam("Choices")) {
                 faces.addAll(parseFaces(sa, "Choices"));
             } else if (sa.hasParam("Booster")) {
-                StaticData.instance().ensureAllCardsLoaded();
-                SealedTemplate booster = Aggregates.random(StaticData.instance().getBoosters());
-                pack = new BoosterPack(booster.getEdition(), booster).getCards();
+                // The game's own booster when it has one (a cube's pack in a cube draft), else any edition's.
+                if (game.getRules().getBoosterSource() != null) {
+                    pack = game.getRules().getBoosterSource().get();
+                } else {
+                    StaticData.instance().ensureAllCardsLoaded();
+                    SealedTemplate booster = Aggregates.random(StaticData.instance().getBoosters());
+                    pack = new BoosterPack(booster.getEdition(), booster).getCards();
+                }
                 for (PaperCard pc : pack) {
                     ICardFace face = pc.getRules().getMainPart();
                     if (face != null)

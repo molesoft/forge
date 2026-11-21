@@ -1,7 +1,11 @@
 package forge.game;
 
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
+
+import forge.item.PaperCard;
 
 public class GameRules {
     private final GameType gameType;
@@ -153,5 +157,19 @@ public class GameRules {
 
     public void setSimTimeout(final int duration) {
         this.simTimeout = duration;
+    }
+
+    /**
+     * The booster a "sealed Magic booster pack" opens in this game (Booster Tutor), or null for a random booster of any
+     * edition. A limited event sets it to its own packs: a cube's pack, or the drafted set's booster.
+     */
+    private Supplier<List<PaperCard>> boosterSource;
+
+    public Supplier<List<PaperCard>> getBoosterSource() {
+        return boosterSource;
+    }
+
+    public void setBoosterSource(final Supplier<List<PaperCard>> source) {
+        this.boosterSource = source;
     }
 }
