@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiPredicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -20,6 +21,14 @@ import java.util.stream.Collectors;
 public final class AvailableActions {
 
     private AvailableActions() {}
+
+    /**
+     * A host's own rule for "the player can play this now", used in place of the AI's affordability estimate and
+     * targetability below when set. A host that lights up playable cards by its own check sets it to that check, so
+     * auto-pass never skips what the player is shown as playable (the AI's estimate, for one, never pays Phyrexian
+     * mana with life). Null keeps Forge's own rule. Never called for mana abilities.
+     */
+    public static volatile BiPredicate<SpellAbility, Player> playableOverride = null;
 
     /** sortByCmc: cheap-cost-first so early-exit hits faster.
      *  Battlefield isn't sorted: activation costs are per-ability, not the permanent's CMC. */
@@ -78,11 +87,13 @@ public final class AvailableActions {
     // Land plays come through with no cost, no targets; spells and activated abilities (incl.
     // hand-activations like Channel) all hit the same shape: not a mana ability, affordable, targetable.
     private static boolean cardHasActionable(Card card, Player player) {
+        final BiPredicate<SpellAbility, Player> override = playableOverride;
         for (SpellAbility sa : card.getAllPossibleAbilities(player, true)) {
-            if (!sa.isManaAbility() && canAfford(sa, player)
-                    && ComputerUtilAbility.isFullyTargetable(sa)) {
-                return true;
-            }
+            if (sa.isManaAbility()) continue;
+            boolean playable = override != null
+                    ? override.test(sa, player)
+                    : canAfford(sa, player) && ComputerUtilAbility.isFullyTargetable(sa);
+            if (playable) return true;
         }
         return false;
     }
