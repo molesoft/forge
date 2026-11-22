@@ -1282,7 +1282,10 @@ public class ComputerUtilCombat {
             if (att.startsWith("+")) {
                 att = att.substring(1);
             }
-            if (att.matches("[0-9][0-9]?") || att.matches("-" + "[0-9][0-9]?")) {
+            if (att.equals("Double") || att.equals("Triple")) {
+                // PumpEffect's own keywords, not SVars: doubling adds the creature's power once, tripling twice.
+                power += attacker.getNetPower() * (att.equals("Double") ? 1 : 2);
+            } else if (att.matches("[0-9][0-9]?") || att.matches("-" + "[0-9][0-9]?")) {
                 power += Integer.parseInt(att);
             } else {
                 String bonus = AbilityUtils.getSVar(sa, att);
@@ -1479,7 +1482,10 @@ public class ComputerUtilCombat {
                 if (def.startsWith("+")) {
                     def = def.substring(1);
                 }
-                if (def.matches("[0-9][0-9]?") || def.matches("-" + "[0-9][0-9]?")) {
+                if (def.equals("Double") || def.equals("Triple")) {
+                    // PumpEffect's own keywords, not SVars (as for NumAtt above).
+                    toughness += attacker.getNetToughness() * (def.equals("Double") ? 1 : 2);
+                } else if (def.matches("[0-9][0-9]?") || def.matches("-" + "[0-9][0-9]?")) {
                     toughness += Integer.parseInt(def);
                 } else {
                     String bonus = AbilityUtils.getSVar(sa, def);
@@ -1511,7 +1517,10 @@ public class ComputerUtilCombat {
                 if (def.startsWith("+")) {
                     def = def.substring(1);
                 }
-                if (def.matches("[0-9][0-9]?") || def.matches("-" + "[0-9][0-9]?")) {
+                if (def.equals("Double") || def.equals("Triple")) {
+                    // PumpEffect's own keywords, not SVars (as for NumAtt above).
+                    toughness += attacker.getNetToughness() * (def.equals("Double") ? 1 : 2);
+                } else if (def.matches("[0-9][0-9]?") || def.matches("-" + "[0-9][0-9]?")) {
                     toughness += Integer.parseInt(def);
                 } else {
                     String bonus = AbilityUtils.getSVar(sa, def);

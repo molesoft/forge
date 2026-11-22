@@ -206,8 +206,14 @@ public class PumpEffect extends SpellAbilityEffect {
                 sb.append(tgts.size() > 1 ? "them " : "it ");
             }
 
-            final int atk = AbilityUtils.calculateAmount(sa.getHostCard(), sa.getParam("NumAtt"), sa, true);
-            final int def = AbilityUtils.calculateAmount(sa.getHostCard(), sa.getParam("NumDef"), sa, true);
+            // "Double" and "Triple" aren't SVars: they add the creature's own power or toughness, as resolve() does.
+            final Card first = tgts.size() == 1 && tgts.get(0) instanceof Card ? (Card) tgts.get(0) : null;
+            final int atk = multiple(sa.getParam("NumAtt")) > 0
+                    ? (first == null ? 0 : first.getNetPower() * multiple(sa.getParam("NumAtt")))
+                    : AbilityUtils.calculateAmount(sa.getHostCard(), sa.getParam("NumAtt"), sa, true);
+            final int def = multiple(sa.getParam("NumDef")) > 0
+                    ? (first == null ? 0 : first.getNetToughness() * multiple(sa.getParam("NumDef")))
+                    : AbilityUtils.calculateAmount(sa.getHostCard(), sa.getParam("NumDef"), sa, true);
 
             boolean gets = sa.hasParam("NumAtt") || sa.hasParam("NumDef");
             boolean gains = !keywords.isEmpty();
@@ -505,5 +511,10 @@ public class PumpEffect extends SpellAbilityEffect {
         }
 
         replaceDying(sa);
+    }
+
+    /** How many more of a creature's own power NumAtt/NumDef adds: 1 for "Double", 2 for "Triple", else 0. */
+    private static int multiple(String raw) {
+        return "Double".equals(raw) ? 1 : "Triple".equals(raw) ? 2 : 0;
     }
 }
