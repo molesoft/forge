@@ -17,10 +17,14 @@
  */
 package forge.gamemodes.match.input;
 
+import forge.ai.simulation.DeckPlan;
+import forge.ai.simulation.OpeningHand;
 import forge.game.Game;
 import forge.game.card.Card;
 import forge.game.card.CardCollection;
 import forge.game.card.CardCollectionView;
+import forge.game.card.CardLists;
+import forge.game.card.CardPredicates;
 import forge.game.card.CardView;
 import forge.game.player.Player;
 import forge.game.zone.ZoneType;
@@ -81,22 +85,47 @@ public class InputLondonMulligan extends InputSyncronizedBase {
         stop();
     }
 
+    /**
+     * Auto: the bottom cards the AI would choose for this hand (its London-mulligan choice, OpeningHand), instead of the
+     * first cards in hand order, which could bottom the only land.
+     */
     @Override
     protected final void onCancel() {
-        int cardsLeft = toReturn - selected.size();
-        int count = 0;
-        for (Card c : player.getZone(ZoneType.Hand).getCards()) {
-            if (selected.contains(c)) { continue; }
+        selected.clear();
+        selected.addAll(autoBottom(player, player.getZone(ZoneType.Hand).getCards(), toReturn,
+                player.getGame().getStartingPlayer() == player));
+        onOk();
+    }
 
-            selected.add(c);
-            count++;
-
-            if (cardsLeft == count) {
-                break;
+    /**
+     * [count] cards of [hand] to put on the bottom: the AI's choice, falling back to the hand's order if it fails.
+     * Either way it never bottoms the last land while a nonland could go instead.
+     */
+    public static CardCollection autoBottom(final Player player, final CardCollectionView hand, final int count, final boolean onPlay) {
+        CardCollection out;
+        try {
+            out = OpeningHand.toBottom(player, hand, count, onPlay, DeckPlan.forSetting("auto", player));
+        } catch (final RuntimeException e) {
+            out = null;
+        }
+        if (out == null || out.size() != count || !hand.containsAll(out)) {
+            out = new CardCollection();
+            for (final Card c : hand) {
+                if (out.size() == count) break;
+                out.add(c);
             }
         }
-
-        onOk();
+        final CardCollection kept = new CardCollection(hand);
+        kept.removeAll(out);
+        if (CardLists.count(kept, CardPredicates.LANDS) == 0) {
+            final Card land = CardLists.filter(out, CardPredicates.LANDS).stream().findFirst().orElse(null);
+            final Card spell = CardLists.filter(kept, CardPredicates.LANDS.negate()).stream().findFirst().orElse(null);
+            if (land != null && spell != null) {
+                out.remove(land);
+                out.add(spell);
+            }
+        }
+        return out;
     }
 
     @Override
