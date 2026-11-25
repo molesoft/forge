@@ -2,6 +2,7 @@ package forge.ai.ability;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -20,6 +21,7 @@ import forge.game.cost.CostDiscard;
 import forge.game.cost.CostExile;
 import forge.game.cost.CostSacrifice;
 import forge.game.player.Player;
+import forge.game.player.PlayerActionConfirmMode;
 import forge.game.spellability.SpellAbility;
 import forge.game.spellability.SpellAbilityStackInstance;
 import forge.game.zone.ZoneType;
@@ -387,5 +389,18 @@ public class CounterAi extends SpellAbilityAi {
         }
 
         return super.willPayUnlessCost(payer, sa, cost, alreadyPaid, payers);
+    }
+
+    /**
+     * A counterspell's choice of destination (CounterEffect, DestinationChoice), asked as a confirm: the first
+     * destination the card lists, as the AI chose before ("FirstChoiceIsYes" says which answer that is). Any other
+     * confirm keeps the base answer, yes.
+     */
+    @Override
+    public boolean confirmAction(Player player, SpellAbility sa, PlayerActionConfirmMode mode, String message, Map<String, Object> params) {
+        if (mode == PlayerActionConfirmMode.ChangeZoneToAltDestination && params != null && params.get("FirstChoiceIsYes") instanceof Boolean first) {
+            return first;
+        }
+        return true;
     }
 }

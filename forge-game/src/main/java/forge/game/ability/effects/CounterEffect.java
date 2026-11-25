@@ -1,6 +1,10 @@
 package forge.game.ability.effects;
 
 import com.google.common.collect.Lists;
+import org.apache.commons.lang3.StringUtils;
+import forge.game.player.PlayerActionConfirmMode;
+import forge.game.player.Player;
+import com.google.common.collect.Maps;
 import forge.game.Game;
 import forge.game.GameLogEntryType;
 import forge.game.ability.AbilityKey;
@@ -263,9 +267,8 @@ public class CounterEffect extends SpellAbilityEffect {
         params.put(AbilityKey.StackSa, tgtSA);
 
         String destination = srcSA.getParamOrDefault("Destination", "Graveyard");
-        if (srcSA.hasParam("DestinationChoice")) { //Hinder
-            List<String> pos = Arrays.asList(srcSA.getParam("DestinationChoice").split(","));
-            destination = srcSA.getActivatingPlayer().getController().chooseSomeType(Localizer.getInstance().getMessage("lblRemoveDestination"), tgtSA, pos);
+        if (srcSA.hasParam("DestinationChoice")) { // Hinder
+            destination = chooseDestination(srcSA, c, Arrays.asList(srcSA.getParam("DestinationChoice").split(",")));
         }
         if (tgtSA.isAbility()) {
             // For Ability-targeted counterspells - do not move it anywhere,
@@ -307,4 +310,48 @@ public class CounterEffect extends SpellAbilityEffect {
         return true;
     }
 
+
+    /**
+     * Where the countering player puts the countered card, of the destinations the card lists (DestinationChoice$).
+     * Asked like ChangeZone's alternative destination: a confirm showing the countered card, with real names. Top and
+     * bottom of a library are "Choose a library position", Top then Bottom; any other two are "Choose a destination
+     * zone" in the card's order. The AI is told which answer is the first the card lists, as it chose before.
+     */
+    private static String chooseDestination(final SpellAbility srcSA, final Card countered, final List<String> destinations) {
+        final Player chooser = srcSA.getActivatingPlayer();
+        final Localizer loc = Localizer.getInstance();
+        if (destinations.size() == 1) {
+            return destinations.get(0);
+        }
+        if (destinations.size() == 2) {
+            final boolean topBottom = destinations.contains("TopOfLibrary") && destinations.contains("BottomOfLibrary");
+            final List<String> order = topBottom ? Arrays.asList("TopOfLibrary", "BottomOfLibrary") : destinations;
+            final List<String> labels = Lists.newArrayList();
+            for (final String d : order) {
+                labels.add(destinationLabel(d, topBottom));
+            }
+            final Map<String, Object> params = Maps.newHashMap();
+            params.put("FirstChoiceIsYes", order.get(0).equals(destinations.get(0)));
+            final boolean yes = chooser.getController().confirmAction(srcSA, PlayerActionConfirmMode.ChangeZoneToAltDestination,
+                    loc.getMessage(topBottom ? "lblChooseLibraryPosition" : "lblChooseDestination"), labels, countered, params);
+            return yes ? order.get(0) : order.get(1);
+        }
+        // No card lists more than two; asked as a choice of readable names.
+        final Map<String, String> byLabel = Maps.newLinkedHashMap();
+        for (final String d : destinations) {
+            byLabel.put(destinationLabel(d, false), d);
+        }
+        final String chosen = chooser.getController().chooseSomeType(loc.getMessage("lblRemoveDestination"), srcSA, byLabel.keySet());
+        return byLabel.getOrDefault(chosen, destinations.get(0));
+    }
+
+    /** A destination's name for a person: Top or Bottom beside each other, else the zone (the top of a library is Library). */
+    private static String destinationLabel(final String destination, final boolean topBottom) {
+        final Localizer loc = Localizer.getInstance();
+        switch (destination) {
+            case "TopOfLibrary": return loc.getMessage(topBottom ? "lblTop" : "lblLibrary");
+            case "BottomOfLibrary": return loc.getMessage("lblBottom");
+            default: return StringUtils.capitalize(ZoneType.smartValueOf(destination).getTranslatedName());
+        }
+    }
 }
