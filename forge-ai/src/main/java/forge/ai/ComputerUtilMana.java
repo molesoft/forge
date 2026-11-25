@@ -96,6 +96,11 @@ public class ComputerUtilMana {
         return payManaCost(sa.getPayCosts(), sa, ai, true, 0, false, false);
     }
 
+    /** The mana abilities a payment of [cost] would activate, worked out without paying; null if it can't be paid. */
+    public static List<SpellAbility> getManaAbilitiesToPayCost(final ManaCostBeingPaid cost, final SpellAbility sa, final Player ai, final boolean effect) {
+        return payManaCost(cost, sa, ai, true, true, effect);
+    }
+
     public static CardCollection getManaSourcesToPayCost(final ManaCostBeingPaid cost, final SpellAbility sa, final Player ai, final boolean effect) {
         final List<SpellAbility> payment = payManaCost(cost, sa, ai, true, true, effect);
         if (payment == null) {
@@ -628,6 +633,28 @@ public class ComputerUtilMana {
 
     // returns null if unpayable
     private static List<SpellAbility> payManaCost(final ManaCostBeingPaid cost, final SpellAbility sa, final Player ai, final boolean test, boolean checkPlayable, boolean effect) {
+        if (!test) {
+            return payManaCostOnce(cost, sa, ai, false, checkPlayable, effect);
+        }
+        // A test run is a question, not a payment: it leaves every mana ability's express choice as it found it. Left
+        // behind, a color it tried (Black Lotus for an {U} spell it then turned down) became the only color the next
+        // activation offered, so a person cracking the Lotus on their own got three blue without being asked.
+        final Map<AbilityManaPart, String> express = new IdentityHashMap<>();
+        for (final Card c : ai.getGame().getCardsInGame()) {
+            for (final SpellAbility ma : c.getManaAbilities()) {
+                for (final AbilityManaPart part : ma.getAllManaParts()) {
+                    express.put(part, part.getExpressChoice());
+                }
+            }
+        }
+        try {
+            return payManaCostOnce(cost, sa, ai, true, checkPlayable, effect);
+        } finally {
+            express.forEach(AbilityManaPart::setExpressChoice);
+        }
+    }
+
+    private static List<SpellAbility> payManaCostOnce(final ManaCostBeingPaid cost, final SpellAbility sa, final Player ai, final boolean test, boolean checkPlayable, boolean effect) {
         if ((sa.isOffering() && sa.getSacrificedAsOffering() == null) || (sa.isEmerge() && sa.getSacrificedAsEmerge() == null)) {
             // nothing was chosen
             return null;

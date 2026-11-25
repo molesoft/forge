@@ -11,6 +11,7 @@ import forge.game.GameActionUtil;
 import forge.game.card.Card;
 import forge.game.card.CardView;
 import forge.game.card.CardCollection;
+import forge.game.cost.CostSacrifice;
 import forge.game.mana.ManaCostBeingPaid;
 import forge.game.player.PlaySpellAbility;
 import forge.game.player.Player;
@@ -407,10 +408,46 @@ public abstract class InputPayMana extends InputSyncronizedBase {
             final Runnable proc = () -> ComputerUtilMana.payManaCost(manaCost, saPaidFor, player, effect);
             //must run in game thread as certain payment actions can only be automated there
             game.getAction().invoke(() -> {
+                if (!sacrificesConfirmed()) {
+                    // A sacrifice the person turned down: nothing is paid, and the payment stays open.
+                    onStateChanged();
+                    return;
+                }
                 runAsAi(proc);
                 onStateChanged();
             });
         }
+    }
+
+    /**
+     * Auto pays as the AI would, and the AI never asks before it sacrifices. A person is asked about each mana ability
+     * in Auto's plan whose cost sacrifices something (Black Lotus, Lotus Petal, a Treasure), before anything is paid:
+     * they may not know Auto would sacrifice it. False if they turn one down.
+     */
+    private boolean sacrificesConfirmed() {
+        final ManaCostBeingPaid costCopy = new ManaCostBeingPaid(manaCost);
+        final Evaluator<List<SpellAbility>> plan = new Evaluator<>() {
+            @Override
+            public List<SpellAbility> evaluate() {
+                return ComputerUtilMana.getManaAbilitiesToPayCost(costCopy, saPaidFor, player, effect);
+            }
+        };
+        runAsAi(plan);
+        final List<SpellAbility> abilities = plan.getResult();
+        if (abilities == null) {
+            return true;
+        }
+        for (final SpellAbility ma : abilities) {
+            if (ma.getPayCosts() == null || !ma.getPayCosts().hasSpecificCostType(CostSacrifice.class)) {
+                continue;
+            }
+            final Card host = ma.getHostCard();
+            final String message = "Auto would pay with " + host.getName() + " (" + ma.getPayCosts().toSimpleString() + "). Go ahead?";
+            if (!InputConfirm.confirm(getController(), CardView.get(host), message)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     protected void updateButtons() {
