@@ -483,7 +483,15 @@ public class ChangeZoneEffect extends SpellAbilityEffect {
 
         int libPos = sa.hasParam("LibraryPosition") ? AbilityUtils.calculateAmount(hostCard, sa.getParam("LibraryPosition"), sa) : 0;
         if (sa.hasParam("DestinationAlternative")) {
-            Pair<ZoneType, Integer> pair = handleAltDest(sa, hostCard, destination, libPos, activator, tgtCards);
+            // A targeted spell (Subtlety, from the stack) is moving too: without its card, the prompt showed the
+            // ability's source instead of the spell whose place is being chosen.
+            final CardCollection moving = new CardCollection(tgtCards);
+            for (final SpellAbility tgtSA : getTargetSpells(sa)) {
+                if (tgtSA.getHostCard() != null && !moving.contains(tgtSA.getHostCard())) {
+                    moving.add(tgtSA.getHostCard());
+                }
+            }
+            Pair<ZoneType, Integer> pair = handleAltDest(sa, hostCard, destination, libPos, activator, moving);
             destination = pair.getKey();
             libPos = pair.getValue();
         }
